@@ -64,8 +64,8 @@ unfinished pages show "Coming soon". Replace them with real code in your feature
 | 2 | Services & profiles | `models/Service.js`, `serviceController.js`, `serviceRoutes.js`, `Services.js`, `ProProfile.js`, `AdminServices.js` |
 | 3 | Bookings & auto-assign | `models/Booking.js`, `utils/assign.js`, `bookingController.js`, `bookingRoutes.js`, `BookService.js`, `MyBookings.js`, `ProJobs.js`, `AdminBookings.js` |
 
-Member 1 should finish `middleware/auth.js` first; until then protected routes let every
-request through.
+Auth is done: use `protect` and `allow("role")` on routes, `req.user` in controllers, and
+`const { user } = useAuth();` in pages. Approved professionals have `approvalStatus: "approved"`.
 
 ## Code style
 
