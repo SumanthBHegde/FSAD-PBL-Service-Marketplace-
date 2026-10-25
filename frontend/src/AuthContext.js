@@ -1,5 +1,6 @@
 // Member 1: holds the logged-in user for the whole app.
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { api } from "./api.js";
 
 const e = React.createElement;
 const AuthContext = createContext(null);
@@ -7,12 +8,20 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
-  // TODO (Member 1): on first load, call GET /api/auth/me to restore the session,
-  // and add login / logout helpers that call the API and update user.
+  // On page load, ask the server who is logged in (the cookie is sent automatically).
+  useEffect(() => {
+    api("/api/auth/me").then(setUser).catch(() => setUser(null));
+  }, []);
 
-  return e(AuthContext.Provider, { value: { user, setUser } }, children);
+  async function logout() {
+    await api("/api/auth/logout", { method: "POST" });
+    setUser(null);
+  }
+
+  return e(AuthContext.Provider, { value: { user, setUser, logout } }, children);
 }
 
+// Usage in any page: const { user, setUser, logout } = useAuth();
 export function useAuth() {
   return useContext(AuthContext);
 }

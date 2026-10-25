@@ -1,8 +1,55 @@
-// Member 1: customer or professional signup, POST /api/auth/register or /api/auth/register-pro.
-import React from "react";
+// Member 1: signup form for customers and professionals.
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../api.js";
+import { useAuth } from "../AuthContext.js";
 
 const e = React.createElement;
 
 export default function Register() {
-  return e("div", null, e("h2", null, "Register"), e("p", { className: "text-muted" }, "Coming soon."));
+  const { setUser } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ name: "", email: "", password: "", phone: "", experienceYears: "" });
+  const [isPro, setIsPro] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event) {
+    event.preventDefault();
+    const url = isPro ? "/api/auth/register-pro" : "/api/auth/register";
+    try {
+      setUser(await api(url, { method: "POST", body: form }));
+      navigate("/");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  const input = (name, type) =>
+    e("input", {
+      className: "form-control mb-2",
+      type,
+      placeholder: name,
+      required: true,
+      value: form[name],
+      onChange: (event) => setForm({ ...form, [name]: event.target.value })
+    });
+
+  return e(
+    "form",
+    { className: "col-md-4", onSubmit: submit },
+    e("h2", null, "Register"),
+    error && e("div", { className: "alert alert-danger" }, error),
+    input("name", "text"),
+    input("email", "email"),
+    input("password", "password"),
+    input("phone", "tel"),
+    e(
+      "label",
+      { className: "form-check mb-2" },
+      e("input", { className: "form-check-input", type: "checkbox", checked: isPro, onChange: () => setIsPro(!isPro) }),
+      " Join as a professional"
+    ),
+    isPro && input("experienceYears", "number"),
+    e("button", { className: "btn btn-primary" }, "Register")
+  );
 }
