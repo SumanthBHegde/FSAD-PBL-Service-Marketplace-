@@ -26,4 +26,12 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Never send the password hash in API responses.
+userSchema.set("toJSON", {
+  transform: (doc, ret) => {
+    delete ret.password;
+    return ret;
+  }
+});
+
 export default mongoose.model("User", userSchema);
