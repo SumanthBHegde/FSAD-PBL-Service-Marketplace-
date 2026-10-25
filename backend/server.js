@@ -25,7 +25,8 @@ app.use("/api", (req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.name === "ValidationError" ? 400 : 500).json({ message: err.message });
+  const badInput = err.name === "ValidationError" || err.name === "CastError"; // CastError: invalid id
+  res.status(badInput ? 400 : 500).json({ message: err.message });
 });
 
 await connectDB();
