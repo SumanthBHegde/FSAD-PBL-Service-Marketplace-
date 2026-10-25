@@ -1,5 +1,6 @@
 import React from "react";
-import { Routes, Route, Link } from "react-router-dom";
+import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import { useAuth } from "./AuthContext.js";
 import Home from "./pages/Home.js";
 import Login from "./pages/Login.js";
 import Register from "./pages/Register.js";
@@ -14,29 +15,30 @@ import AdminBookings from "./pages/AdminBookings.js";
 
 const e = React.createElement;
 
-// TODO (Member 1): show links based on the logged-in user's role.
-const links = [
-  ["/services", "Services"],
-  ["/bookings", "My bookings"],
-  ["/pro/profile", "Pro profile"],
-  ["/pro/jobs", "Pro jobs"],
-  ["/admin/pros", "Admin: pros"],
-  ["/admin/services", "Admin: services"],
-  ["/admin/bookings", "Admin: bookings"],
-  ["/login", "Login"],
-  ["/register", "Register"]
-];
+// Navbar links for each role ("guest" = not logged in).
+const links = {
+  guest: [["/services", "Services"], ["/login", "Login"], ["/register", "Register"]],
+  customer: [["/services", "Services"], ["/bookings", "My bookings"]],
+  professional: [["/pro/profile", "My profile"], ["/pro/jobs", "My jobs"]],
+  admin: [["/admin/pros", "Professionals"], ["/admin/services", "Services"], ["/admin/bookings", "Bookings"]]
+};
 
 function Navbar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const pending = user && user.approvalStatus && user.approvalStatus !== "approved";
+
   return e(
     "nav",
     { className: "navbar navbar-expand bg-dark navbar-dark px-3 mb-4" },
     e(Link, { className: "navbar-brand", to: "/" }, "HomeEase"),
     e(
       "div",
-      { className: "navbar-nav flex-wrap" },
-      links.map(([to, label]) => e(Link, { key: to, className: "nav-link", to }, label))
-    )
+      { className: "navbar-nav me-auto flex-wrap" },
+      links[user ? user.role : "guest"].map(([to, label]) => e(Link, { key: to, className: "nav-link", to }, label))
+    ),
+    user && e("span", { className: "navbar-text me-3" }, user.name + (pending ? " (" + user.approvalStatus + ")" : "")),
+    user && e("button", { className: "btn btn-sm btn-outline-light", onClick: () => logout().then(() => navigate("/")) }, "Logout")
   );
 }
 
