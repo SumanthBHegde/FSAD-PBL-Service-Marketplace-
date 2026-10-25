@@ -63,10 +63,22 @@ export async function me(req, res) {
 
 // GET /api/admin/pros?status=pending
 export async function listPros(req, res) {
-  res.status(501).json({ message: "TODO: list professionals" });
+  const filter = { role: "professional" };
+  if (req.query.status) filter.approvalStatus = req.query.status;
+  res.json(await User.find(filter));
 }
 
 // PATCH /api/admin/pros/:id  { approvalStatus: "approved" | "rejected" }
 export async function setApproval(req, res) {
-  res.status(501).json({ message: "TODO: approve or reject professional" });
+  const status = req.body?.approvalStatus;
+  if (status !== "approved" && status !== "rejected") {
+    return res.status(400).json({ message: "approvalStatus must be approved or rejected" });
+  }
+  const pro = await User.findOneAndUpdate(
+    { _id: req.params.id, role: "professional" },
+    { approvalStatus: status },
+    { new: true }
+  );
+  if (!pro) return res.status(404).json({ message: "Professional not found" });
+  res.json(pro);
 }
