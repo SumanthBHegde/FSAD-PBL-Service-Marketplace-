@@ -13,7 +13,7 @@ import { todayIST } from "../utils/dates.js";
 let child, base, testUri, admin, customer, other, pro, pro2, pending, service;
 const secret = "isolated-integration-test-signing-key";
 const date = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-const token = (u) => jwt.sign({ id: u._id }, secret);
+const token = (u) => jwt.sign({ id: u._id, sid: "fixture" }, secret);
 async function request(path, user, method = "GET", body) {
   const response = await fetch(base + "/api" + path, { method, headers: { "Content-Type": "application/json", ...(user ? { Cookie: "token=" + token(user) } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
   return { status: response.status, body: await response.json() };
@@ -22,7 +22,7 @@ const book = (user = customer, fields = {}) => request("/bookings", user, "POST"
 const action = (id, verb, user = customer, body) => request("/bookings/" + id + "/" + verb, user, "PATCH", body);
 const job = (id, verb, user = pro, body) => request("/jobs/" + id + "/" + verb, user, "PATCH", body);
 async function fixture(role, name, extra = {}) {
-  return User.create({ role, name, email: name + "@example.test", phone: "1234567890", password: "unused-test-hash", ...extra });
+  return User.create({ sessions: [{ sid: "fixture", expiresAt: new Date(Date.now() + 86400000) }], role, name, email: name + "@example.test", phone: "1234567890", password: "unused-test-hash", ...extra });
 }
 before(async () => {
   const dbName = "homeease_test_" + process.pid + "_" + Date.now();
@@ -213,4 +213,37 @@ test("seeding is repeatable and refuses a non-admin email collision", async () =
   assert.equal(await User.countDocuments({email:"seed-admin@example.test"}), 1);
   assert.equal(await seed(customer.email), 1);
   assert.equal((await User.findById(customer._id)).role, "customer");
+});
+
+test("independent devices can stay signed in or revoke the other login", async () => {
+  const credentials = { email: "devices@example.test", password: "example-password" };
+  async function auth(path, body, cookie) {
+    const response = await fetch(base + "/api/auth/" + path, {
+      method: path === "me" ? "GET" : "POST",
+      headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
+      body: body && JSON.stringify(body)
+    });
+    return { status: response.status, body: await response.json(), cookie: response.headers.get("set-cookie")?.split(";")[0] };
+  }
+  const first = await auth("register", { ...credentials, name: "Devices", phone: "9999999999" });
+  assert.equal(first.status, 201);
+  const second = await auth("login", credentials);
+  assert.equal(second.body.otherSessions, true);
+  for (const device of [first, second]) assert.equal((await auth("me", undefined, device.cookie)).status, 200);
+  assert.equal((await auth("logout-others", undefined, second.cookie)).status, 200);
+  assert.equal((await auth("me", undefined, first.cookie)).status, 401);
+  assert.equal((await auth("me", undefined, second.cookie)).status, 200);
+  assert.equal((await auth("logout", undefined, second.cookie)).status, 200);
+  assert.equal((await auth("me", undefined, second.cookie)).status, 401);
+  assert.equal((await auth("login", credentials)).body.otherSessions, false);
+});
+
+test("PIN search only lists services with a matching eligible offer", async () => {
+  assert.equal((await request("/services?pincode=56")).status, 400);
+  assert.equal((await request("/services?pincode=560001&category=plumbing")).body.length, 1);
+  assert.equal((await request("/services?pincode=560001&category=ac")).body.length, 0);
+  assert.equal((await request("/services?pincode=560099")).body.length, 0);
+  await User.updateOne({ _id: pro._id }, { workingDays: [] });
+  await User.updateOne({ _id: pro2._id }, { "services.0.price": 999 });
+  assert.equal((await request("/services?pincode=560001")).body.length, 0);
 });

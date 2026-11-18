@@ -8,7 +8,23 @@ export async function listServices(req, res) {
     if (!CATEGORIES.includes(req.query.category)) return res.status(400).json({ message: "Invalid category" });
     filter.category = req.query.category;
   }
-  res.json(await Service.find(filter).sort({ name: 1 }));
+  const pin = req.query.pincode;
+  if (pin !== undefined && (typeof pin !== "string" || !/^[1-9]\d{5}$/.test(pin))) {
+    return res.status(400).json({ message: "Enter a six-digit PIN code" });
+  }
+  const catalog = await Service.find(filter).sort({ name: 1 });
+  if (pin === undefined) return res.json(catalog);
+  const professionals = await User.find({ role: "professional", approvalStatus: "approved",
+    pincodes: pin, "workingDays.0": { $exists: true } }).select("services").lean();
+  const ranges = new Map(catalog.map((service) => [String(service._id), service]));
+  const covered = new Set();
+  for (const pro of professionals) {
+    for (const offer of pro.services) {
+      const service = ranges.get(String(offer.service));
+      if (service && offer.price >= service.minPrice && offer.price <= service.maxPrice) covered.add(String(service._id));
+    }
+  }
+  res.json(catalog.filter((service) => covered.has(String(service._id))));
 }
 
 export async function adminServices(req, res) {

@@ -14,13 +14,29 @@ export function AuthProvider({ children }) {
   }, []);
   useEffect(() => {
     let current = true;
-    const started = revision.current;
-    api("/api/auth/me").then((value) => {
-      if (current && started === revision.current) setUser(value);
-    }).catch(() => {
-      if (current && started === revision.current) setUser(null);
-    }).finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
+    let sequence = 0;
+    async function sync() {
+      const started = revision.current;
+      const request = ++sequence;
+      const latest = () => current && request === sequence && started === revision.current;
+      try {
+        const value = await api("/api/auth/me");
+        if (latest()) updateUser((old) => JSON.stringify(old) === JSON.stringify(value) ? old : value);
+      } catch (error) {
+        if (latest() && error.status === 401) updateUser(null);
+      } finally { if (latest()) setLoading(false); }
+    }
+    function whenVisible() { if (!document.hidden) sync(); }
+    sync();
+    const timer = window.setInterval(whenVisible, 15000);
+    window.addEventListener("focus", whenVisible);
+    document.addEventListener("visibilitychange", whenVisible);
+    return () => {
+      current = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", whenVisible);
+      document.removeEventListener("visibilitychange", whenVisible);
+    };
   }, [setUser]);
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });

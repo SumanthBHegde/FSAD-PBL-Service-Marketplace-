@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { Routes, Route, Link, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext.js";
-import Home from "./pages/Home.js";
 import Login from "./pages/Login.js";
 import Register from "./pages/Register.js";
 import AdminPros from "./pages/AdminPros.js";
@@ -17,7 +16,7 @@ const e = React.createElement;
 
 // Navbar links for each role ("guest" = not logged in).
 const links = {
-  guest: [["/services", "Services"], ["/login", "Login"], ["/register", "Register"]],
+  guest: [["/services", "Services"], ["/register", "Register"]],
   customer: [["/services", "Services"], ["/bookings", "My bookings"]],
   professional: [["/pro/profile", "My profile"], ["/pro/jobs", "My jobs"]],
   admin: [["/admin/pros", "Professionals"], ["/admin/services", "Services"], ["/admin/bookings", "Bookings"]]
@@ -31,13 +30,14 @@ function Navbar() {
 
   return e(
     "nav",
-    { className: "navbar navbar-expand bg-dark navbar-dark px-3 mb-4" },
+    { className: "navbar navbar-expand site-nav navbar-dark px-3 mb-4" },
     e(Link, { className: "navbar-brand", to: "/" }, "HomeEase"),
     e(
       "div",
       { className: "navbar-nav me-auto flex-wrap" },
       links[user ? user.role : "guest"].map(([to, label]) => e(Link, { key: to, className: "nav-link", to }, label))
     ),
+    !user && e(Link, { className: "btn btn-outline-light account-link", to: "/login" }, "Login"),
     user && e("span", { className: "navbar-text me-3" }, user.name + (pending ? " (" + user.approvalStatus + ")" : "")),
     user && e("button", { className: "btn btn-sm btn-outline-light", onClick: () => { setError(""); logout().then(() => navigate("/")).catch((err) => setError(err.message)); } }, "Logout"),
     error && e("span", { role: "alert", className: "text-warning ms-2" }, error)
@@ -55,7 +55,7 @@ export default function App() {
       e(
         Routes,
         null,
-        e(Route, { path: "/", element: e(Home) }),
+        e(Route, { path: "/", element: e(Navigate, { to: "/services", replace: true }) }),
         e(Route, { path: "/login", element: e(Login) }),
         e(Route, { path: "/register", element: e(Register) }),
         e(Route, { path: "/admin/pros", element: e(AdminPros) }),

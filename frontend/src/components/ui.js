@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../AuthContext.js";
 import { api } from "../api.js";
 export const e = React.createElement;
@@ -16,9 +16,10 @@ export function select(label, props, values) {
     values.map(([value, text]) => e("option", { key: value, value }, text))));
 }
 export function Access({ role, children }) {
+  const location = useLocation();
   const { user, loading } = useAuth();
   if (loading) return e("p", null, "Restoring session…");
-  if (!user) return e("p", null, e(Link, { to: "/login" }, "Log in"), " to continue.");
+  if (!user) return e("p", null, e(Link, { to: "/login", state: { from: location.pathname + location.search } }, "Log in"), " to continue.");
   if (user.role !== role) return alert("This page is for " + role + " accounts.");
   return children;
 }

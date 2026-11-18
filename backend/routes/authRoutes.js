@@ -8,6 +8,7 @@ router.post("/auth/register", ctrl.register);
 router.post("/auth/register-pro", ctrl.registerPro);
 router.post("/auth/login", ctrl.login);
 router.post("/auth/logout", ctrl.logout);
+router.post("/auth/logout-others", protect, ctrl.logoutOthers);
 router.get("/auth/me", protect, ctrl.me);
 
 router.get("/admin/pros", protect, allow("admin"), ctrl.listPros);
