@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api.js";
 import { e, field, select, alert, money, slots, todayIST, Access, useRemote } from "../components/ui.js";
 export default function BookService() {
   const { serviceId } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const { data: service, error, loading } = useRemote("/api/services/" + serviceId);
-  const [form, setForm] = useState({ date: "", slot: slots[0], address: "", pincode: "" });
+  const [form, setForm] = useState({ date: "", slot: slots[0], address: "", pincode: params.get("pincode") || "" });
   const [failure, setFailure] = useState("");
   const [busy, setBusy] = useState(false);
   const change = (name) => (ev) => setForm({ ...form, [name]: ev.target.value });

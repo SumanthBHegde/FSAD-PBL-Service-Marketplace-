@@ -1,4 +1,5 @@
 // Member 1: auth and professional approval (prd.md sections 8 and 9).
+import { randomUUID } from "node:crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
@@ -6,10 +7,20 @@ import User from "../models/User.js";
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
 // Create a JWT for the user, put it in an HttpOnly cookie and send the user back.
-function sendToken(res, user, status = 200) {
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+async function sendToken(req, res, user, status = 200) {
+  const sid = randomUUID();
+  const previous = readSession(req);
+  const now = new Date();
+  const expiredOrCurrent = [{ expiresAt: { $lte: now } }];
+  if (previous?.id === String(user._id) && previous.sid) expiredOrCurrent.push({ sid: previous.sid });
+  await User.updateOne({ _id: user._id }, { $pull: { sessions: { $or: expiredOrCurrent } } });
+  const before = await User.findOneAndUpdate({ _id: user._id }, {
+    $push: { sessions: { sid, expiresAt: new Date(now.getTime() + ONE_DAY) } }
+  }).select("+sessions");
+  const otherSessions = before.sessions.some((entry) => entry.expiresAt > now);
+  const token = jwt.sign({ id: user._id, sid }, process.env.JWT_SECRET, { expiresIn: "1d" });
   res.cookie("token", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: ONE_DAY });
-  res.status(status).json(user);
+  res.status(status).json({ ...user.toJSON(), otherSessions });
 }
 
 // Shared by both signups. The role comes from the server, never from req.body.
@@ -32,7 +43,7 @@ async function createUser(req, res, extra) {
     if (err.code === 11000) return res.status(409).json({ message: "Email already registered" });
     throw err;
   }
-  sendToken(res, user, 201);
+  await sendToken(req, res, user, 201);
 }
 
 // POST /api/auth/register  { name, email, password, phone }  -> customer
@@ -63,11 +74,25 @@ export async function login(req, res) {
   if (!user || !(await bcrypt.compare(String(password), user.password))) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
-  sendToken(res, user);
+  await sendToken(req, res, user);
+}
+
+function readSession(req) {
+  try { return jwt.verify(req.cookies?.token, process.env.JWT_SECRET); }
+  catch { return null; }
+}
+
+export async function logoutOthers(req, res) {
+  const result = await User.updateOne({ _id: req.user._id, "sessions.sid": req.sid },
+    { $pull: { sessions: { sid: { $ne: req.sid } } } });
+  if (!result.matchedCount) return res.status(401).json({ message: "Please log in again" });
+  res.json({ message: "Other devices signed out" });
 }
 
 // POST /api/auth/logout  -> clear "token" cookie
 export async function logout(req, res) {
+  const session = readSession(req);
+  if (session?.sid) await User.updateOne({ _id: session.id }, { $pull: { sessions: { sid: session.sid } } });
   res.clearCookie("token", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
   res.json({ message: "Logged out" });
 }

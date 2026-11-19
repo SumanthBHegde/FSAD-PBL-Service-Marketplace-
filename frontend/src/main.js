@@ -10,3 +10,5 @@ const e = React.createElement;
 createRoot(document.getElementById("root")).render(
   e(BrowserRouter, null, e(AuthProvider, null, e(App)))
 );
+
+import "./theme.css";

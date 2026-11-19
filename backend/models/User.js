@@ -8,6 +8,12 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     role: { type: String, enum: ["customer", "professional", "admin"], default: "customer" },
 
+    sessions: {
+      type: [{ _id: false, sid: String, expiresAt: Date }],
+      select: false,
+      default: []
+    },
+
     // Professional only
     approvalStatus: { type: String, enum: ["pending", "approved", "rejected"] },
     experienceYears: { type: Number, min: 0 },
@@ -30,6 +36,7 @@ const userSchema = new mongoose.Schema(
 userSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.password;
+    delete ret.sessions;
     return ret;
   }
 });
